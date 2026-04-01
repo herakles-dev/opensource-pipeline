@@ -1,29 +1,29 @@
 ---
 name: opensource
-description: "Open-source pipeline: fork, sanitize, and package projects. Chains 3 agents for safe public release. Triggers: '/opensource', 'opensource fork', 'open source this', 'make this public'."
+description: "Open-source pipeline: fork, sanitize, and package private projects for safe public release. Chains 3 agents (forker, sanitizer, packager). Triggers: '/opensource', 'open source this', 'make this public', 'prepare for open source'."
 model: inherit
-color: green
 ---
 
 # Open-Source Pipeline Skill
 
-## Purpose
-Safely open-source any project through a 3-stage pipeline: Fork (strip secrets) -> Sanitize (verify clean) -> Package (CLAUDE.md + setup.sh).
+Safely open-source any project through a 3-stage pipeline: **Fork** (strip secrets) -> **Sanitize** (verify clean) -> **Package** (CLAUDE.md + setup.sh + README).
 
-## Activation
+## When to Activate
+
+- User says "open source this project" or "make this public"
+- User wants to prepare a private repo for public release
+- User needs to strip secrets before pushing to GitHub
+- User invokes `/opensource fork`, `/opensource verify`, or `/opensource package`
+
+## Commands
 
 | Command | Action |
 |---------|--------|
 | `/opensource fork PROJECT` | Full pipeline: fork + sanitize + package |
 | `/opensource verify PROJECT` | Run sanitizer on existing repo |
-| `/opensource package PROJECT` | Generate CLAUDE.md + setup.sh + README for a project |
+| `/opensource package PROJECT` | Generate CLAUDE.md + setup.sh + README |
 | `/opensource list` | Show all staged projects |
 | `/opensource status PROJECT` | Show reports for a staged project |
-
-Also triggers on:
-- "open source this project"
-- "make this public"
-- "prepare for open source"
 
 ## Protocol
 
@@ -33,16 +33,15 @@ Also triggers on:
 
 #### Step 1: Gather Parameters
 
-Resolve the project path. If PROJECT contains a `/`, treat as a path (absolute or relative). Otherwise, check in order: current working directory, `$HOME/PROJECT`, then ask the user.
+Resolve the project path. If PROJECT contains `/`, treat as a path (absolute or relative). Otherwise check: current working directory, `$HOME/PROJECT`, then ask the user.
 
 ```
-PROJECT_NAME="${1:-}"
-SOURCE_PATH="<resolved absolute path to project>"
+SOURCE_PATH="<resolved absolute path>"
 STAGING_PATH="$HOME/opensource-staging/${PROJECT_NAME}"
 ```
 
 Ask the user:
-1. "Which project?" (if not specified or path not found)
+1. "Which project?" (if not found)
 2. "License? (MIT / Apache-2.0 / GPL-3.0 / BSD-3-Clause)"
 3. "GitHub org or username?" (default: detect via `gh api user -q .login`)
 4. "GitHub repo name?" (default: project name)
@@ -75,7 +74,7 @@ Follow the full forking protocol:
 3. Replace internal references with placeholders
 4. Generate .env.example
 5. Clean git history
-6. Generate FORK_REPORT.md in the staging project directory ({STAGING_PATH}/FORK_REPORT.md)
+6. Generate FORK_REPORT.md in {STAGING_PATH}/FORK_REPORT.md
 """
 )
 ```
@@ -112,8 +111,8 @@ Generate SANITIZATION_REPORT.md inside {STAGING_PATH}/ with PASS/FAIL verdict.
 Wait for completion. Read `{STAGING_PATH}/SANITIZATION_REPORT.md`.
 
 **If FAIL:** Show findings to user. Ask: "Fix these and re-scan, or abort?"
-  - If fix: Apply fixes, re-run sanitizer (maximum 3 retry attempts — after 3 FAILs, present all findings and ask user to fix manually)
-  - If abort: Clean up staging directory
+- If fix: Apply fixes, re-run sanitizer (maximum 3 retry attempts — after 3 FAILs, present all findings and ask user to fix manually)
+- If abort: Clean up staging directory
 
 **If PASS or PASS WITH WARNINGS:** Continue to Step 5.
 
@@ -132,7 +131,7 @@ Project: {STAGING_PATH}
 License: {chosen_license}
 Project name: {PROJECT_NAME}
 Description: {description}
-GitHub repo: {github_repo}
+GitHub repo: {github_org}/{github_repo}
 
 Generate:
 1. CLAUDE.md (commands, architecture, key files)
@@ -154,7 +153,7 @@ Open-Source Fork Ready: {PROJECT_NAME}
 Location: {STAGING_PATH}
 License: {license}
 Files generated:
-  - CLAUDE.md (X lines)
+  - CLAUDE.md
   - setup.sh (executable)
   - README.md
   - LICENSE
@@ -162,17 +161,16 @@ Files generated:
   - .env.example ({N} variables)
 
 Sanitization: {sanitization_verdict}
-Fork Report: {summary}
 
 Next steps:
-  1. Review the fork: cd {STAGING_PATH}
-  2. Create GitHub repo: gh repo create {github_org}/{github_repo} --public
+  1. Review: cd {STAGING_PATH}
+  2. Create repo: gh repo create {github_org}/{github_repo} --public
   3. Push: git remote add origin ... && git push -u origin main
 
 Proceed with GitHub creation? (yes/no/review first)
 ```
 
-#### Step 7: GitHub Publish (on approval)
+#### Step 7: GitHub Publish (on user approval)
 
 ```bash
 cd "{STAGING_PATH}"
@@ -183,7 +181,7 @@ gh repo create "{github_org}/{github_repo}" --public --source=. --push --descrip
 
 ### /opensource verify PROJECT
 
-Run sanitizer independently on any project. Resolve the path: if PROJECT contains a `/`, treat as a path. Otherwise check `$HOME/opensource-staging/PROJECT`, then `$HOME/PROJECT`, then current directory.
+Run sanitizer independently. Resolve path: if PROJECT contains `/`, treat as a path. Otherwise check `$HOME/opensource-staging/PROJECT`, then `$HOME/PROJECT`, then current directory.
 
 ```
 Agent(
@@ -192,20 +190,16 @@ Agent(
 )
 ```
 
-Show report to user.
-
 ---
 
 ### /opensource package PROJECT
 
-Run packager independently. Resolve the path the same way as verify.
+Run packager independently. Ask for "License?", "GitHub org or username?", and "Description?", then:
 
 ```
-Ask: "License?" and "Description?"
-
 Agent(
   subagent_type="opensource-packager",
-  prompt="Package: {resolved_path} ..."
+  prompt="Package: {resolved_path}, License: {license}, GitHub repo: {github_org}/{github_repo}, Description: {description}"
 )
 ```
 
@@ -213,43 +207,49 @@ Agent(
 
 ### /opensource list
 
-List all staged projects:
 ```bash
 ls -d $HOME/opensource-staging/*/
 ```
 
-Show each project with its status (check for FORK_REPORT.md, SANITIZATION_REPORT.md, CLAUDE.md to determine pipeline progress).
+Show each project with pipeline progress (FORK_REPORT.md, SANITIZATION_REPORT.md, CLAUDE.md presence).
 
 ---
 
 ### /opensource status PROJECT
 
-Show reports for a specific staged project:
 ```bash
-cat $HOME/opensource-staging/${PROJECT}/SANITIZATION_REPORT.md 2>/dev/null || echo "No sanitization report found"
-cat $HOME/opensource-staging/${PROJECT}/FORK_REPORT.md 2>/dev/null || echo "No fork report found"
+cat $HOME/opensource-staging/${PROJECT}/SANITIZATION_REPORT.md
+cat $HOME/opensource-staging/${PROJECT}/FORK_REPORT.md
 ```
 
-## Staging Directory
-
-All forks are staged in `$HOME/opensource-staging/` before publishing.
-This allows review before pushing to GitHub.
+## Staging Layout
 
 ```
 $HOME/opensource-staging/
   my-project/
-    FORK_REPORT.md           # From forker
-    SANITIZATION_REPORT.md   # From sanitizer
-    CLAUDE.md                # From packager
-    setup.sh                 # From packager
-    README.md                # From packager
-    ...                      # Project files
+    FORK_REPORT.md           # From forker agent
+    SANITIZATION_REPORT.md   # From sanitizer agent
+    CLAUDE.md                # From packager agent
+    setup.sh                 # From packager agent
+    README.md                # From packager agent
+    .env.example             # From forker agent
+    ...                      # Sanitized project files
 ```
 
-## Rules
+## Anti-Patterns
 
-- **ALWAYS** run the full pipeline (fork -> sanitize -> package) for new open-source releases
-- **NEVER** push to GitHub without user approval
-- **NEVER** skip the sanitizer — it's the safety gate
-- If sanitizer FAILs, DO NOT proceed until issues are fixed
-- The staging directory persists until explicitly cleaned up
+- **Never** push to GitHub without user approval
+- **Never** skip the sanitizer — it is the safety gate
+- **Never** proceed after a sanitizer FAIL without fixing all critical findings
+- **Never** leave `.env`, `credentials.json`, or real private keys in the staging directory
+
+## Best Practices
+
+- Always run the full pipeline (fork -> sanitize -> package) for new releases
+- The staging directory persists until explicitly cleaned up — use it for review
+- Re-run the sanitizer after any manual fixes before publishing
+- Parameterize secrets rather than deleting them — preserve project functionality
+
+## Related Skills
+
+See `security-review` for secret detection patterns used by the sanitizer.
