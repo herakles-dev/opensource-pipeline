@@ -1,6 +1,6 @@
 # opensource-pipeline
 
-Safely open-source any project with Claude Code. A 3-agent pipeline that strips secrets, verifies sanitization, and generates professional documentation — so you can go from private repo to public GitHub in minutes.
+Safely open-source any project with Claude Code. Merges into one of the most-starred repos in Github history! ----->> A 3-agent pipeline that strips secrets, verifies sanitization, and generates professional documentation — so you can go from private repo to public GitHub in minutes.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
