@@ -11,7 +11,7 @@ Open-sourcing a project is scary. Did you catch every API key? Every hardcoded p
 This pipeline automates the boring, error-prone parts:
 
 - **Forker agent** strips secrets, replaces internal references, generates `.env.example`
-- **Sanitizer agent** independently audits the fork with 30+ detection patterns (secrets, PII, internal refs, dangerous files, git history)
+- **Sanitizer agent** independently audits the fork with 21 detection patterns (secrets, PII, internal refs, dangerous files, git history)
 - **Packager agent** generates `CLAUDE.md`, `setup.sh`, `README.md`, `LICENSE`, `CONTRIBUTING.md`, and GitHub issue templates
 
 The sanitizer is paranoid by design — false positives are acceptable, false negatives are not.
@@ -66,7 +66,7 @@ claude
 
 **Stage 1: Fork** — Copies the project (excluding `.git`, `node_modules`, etc.), scans for secrets using regex patterns (API keys, AWS creds, JWT tokens, private keys, DB connection strings, OAuth secrets), replaces internal references (domains, paths, IPs, usernames) with configurable placeholders, and generates `.env.example`.
 
-**Stage 2: Sanitize** — Independent read-only audit. Scans 6 categories: secrets, PII, internal references, dangerous files, configuration completeness, and git history. Produces a PASS/FAIL/WARN verdict. A single critical finding blocks release.
+**Stage 2: Sanitize** — Independent read-only audit. Scans 7 categories: secrets, PII, internal references, dangerous files, configuration completeness, git history, and unreadable (binary) files. Produces a PASS/FAIL/WARN verdict. A single critical finding blocks release.
 
 **Stage 3: Package** — Analyzes the project stack and generates professional open-source packaging: `CLAUDE.md` (so Claude Code users can be productive immediately), `setup.sh` (one-command bootstrap), `README.md`, `LICENSE`, `CONTRIBUTING.md`, and GitHub issue templates.
 
@@ -84,7 +84,7 @@ You can also just say "open source this project" or "make this public" in Claude
 
 ## What Gets Detected
 
-### Secrets (30+ patterns)
+### Secrets (21 patterns)
 - API keys, tokens, passwords (generic patterns)
 - AWS credentials (`AKIA*`, `aws_secret_access_key`)
 - Database connection strings (postgres, mysql, mongodb, redis)

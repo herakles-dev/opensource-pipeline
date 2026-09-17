@@ -38,7 +38,7 @@ agents/opensource-packager.md       # Stage 3: Generate CLAUDE.md, setup.sh, REA
 ```
 skills/opensource/SKILL.md          Main skill — the entry point (routes to agents)
 agents/opensource-forker.md         Copies project, strips secrets, generates .env.example
-agents/opensource-sanitizer.md      Scans for leaked secrets, PII, internal refs (30+ patterns)
+agents/opensource-sanitizer.md      Scans for leaked secrets, PII, internal refs (21 patterns)
 agents/opensource-packager.md       Generates CLAUDE.md, setup.sh, README, LICENSE, CONTRIBUTING
 setup.sh                           One-command installer
 ```
@@ -46,7 +46,7 @@ setup.sh                           One-command installer
 ## How It Works
 
 1. **Forker** copies the project, strips secrets (API keys, tokens, passwords), replaces internal references (domains, paths, IPs) with placeholders, generates `.env.example`
-2. **Sanitizer** independently audits the fork — 6 scan categories, 30+ regex patterns, PASS/FAIL verdict
+2. **Sanitizer** independently audits the fork — 7 scan categories, 21 regex patterns, PASS/FAIL verdict
 3. **Packager** generates professional open-source packaging — CLAUDE.md, setup.sh, README, LICENSE, CONTRIBUTING, issue templates
 4. User reviews, approves, and publishes to GitHub
 
